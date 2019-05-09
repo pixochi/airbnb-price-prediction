@@ -129,37 +129,3 @@ X_features.drop(['host_verifications'], axis=1, inplace = True)
 #    X_features[amenity] = X_features['amenities'].str.contains(amenity, regex = False)
 #
 # X_features.drop('amenities', inplace = True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
