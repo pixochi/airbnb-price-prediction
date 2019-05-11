@@ -119,15 +119,28 @@ for verifications_type in all_host_verifications_types:
     X_features[verifications_type] = X_features['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
 X_features.drop(['host_verifications'], axis=1, inplace = True)
-    
-# TODO: get all amenities as new binary features
-#all_amenities = X_features['amenities'].map(
-#    lambda x: literal_eval(x.replace('{', '[').replace('}', ']')) # read stringified list as a normal list
-#).sum()
-#all_amenities = np.unique(all_amenities)
-#
-#
-#for amenity in all_amenities:
-#    X_features[amenity] = X_features['amenities'].str.contains(amenity, regex = False)
-#
-# X_features.drop('amenities', inplace = True)
+
+import re
+# get all amenities as new binary features
+all_amenities = X_features['amenities'].map(
+    lambda x: re.sub(
+                '{(\w+)',
+                r'{"\1"',
+                re.sub(
+                    ',(\w+)', # add missing quotation marks around each amenity
+                    r',"\1"',
+                    x
+                )
+            ).replace(
+                '{', '['
+            ).replace(
+                '}', ']'
+            ) 
+).map(lambda x: re.findall(r'"\s*([^"]*?)\s*"', x)).sum() # convert a stringified list to a normal list
+
+all_amenities = np.unique(all_amenities)
+
+for amenity in all_amenities:
+    X_features[amenity] = X_features['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
+
+X_features.drop('amenities', axis=1, inplace = True)
