@@ -4,7 +4,7 @@ from datetime import date
 
 binary_string_to_number_converter = lambda x: (
     1 if x == 't' else (
-        0 if x == 'f' else x # don't convert x if it's NaN
+        0 if x == 'f' else -1 # convert x to -1 if it's NaN
     )
 )
 
@@ -15,12 +15,12 @@ dataset = pd.read_csv(
         dtype = {
             'zipcode': str,
             'weekly_price': str,
-            'monthly_price': str
+            'monthly_price': str,
         },
         parse_dates = [
                'host_since',
                'first_review',
-               'last_review'
+               'last_review',
         ],
         converters = {
             'host_is_superhost': binary_string_to_number_converter,
@@ -87,7 +87,7 @@ days_since = pd.DataFrame({
 ).apply(
     # use mean of each column for NaN values
     lambda x: x.fillna(x.mean()),
-    axis = 1
+    axis = 1    
 )
 
 # join X_features with a new feature
@@ -98,9 +98,11 @@ X_features = pd.DataFrame(
     )
 )
     
-# drop rows where any feature value is NaN (host_is_superhost, beds, bedrooms, bathrooms)
-# cca only 15 rows for the features mentioned above
-X_features = X_features.dropna()
+# drop rows where feature values are NaN
+# cca only 15 rows for each feature
+X_features = X_features.dropna(subset = ['beds', 'bedrooms', 'bathrooms'])
+# NaN has been converted to -1 in dataset import
+X_features['host_is_superhost'] = X_features[X_features['host_is_superhost'] != -1]
 
 # convert price for extra_people into float
 X_features['extra_people'] = X_features['extra_people'].str.replace('\$|,', '').astype(float)
@@ -109,12 +111,12 @@ X_features['extra_people'] = X_features['extra_people'].str.replace('\$|,', '').
 from ast import literal_eval
 
 all_host_verifications_types = X_features['host_verifications'].map(
-    lambda x: literal_eval(x) # read stringified list as a normal list
+    lambda x: [] if x == 'None' else literal_eval(x) # read stringified list as a normal list
 ).sum()
 all_host_verifications_types = np.unique(all_host_verifications_types)
 
 for verifications_type in all_host_verifications_types:
-    X_features[verifications_type] = X_features['host_verifications'].str.contains(verifications_type, regex = False)
+    X_features[verifications_type] = X_features['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
 X_features.drop(['host_verifications'], axis=1, inplace = True)
     
