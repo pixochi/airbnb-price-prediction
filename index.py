@@ -2,13 +2,16 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+# =============================================================================
+# 1. IMPORTING THE DATASET
+# =============================================================================
+
 binary_string_to_number_converter = lambda x: (
     1 if x == 't' else (
         0 if x == 'f' else -1 # convert x to -1 if it's NaN
     )
 )
 
-# Importing the dataset
 dataset = pd.read_csv(
         'airbnb_cph_listings.csv',
         # These dataset columns have mixed data types
@@ -36,7 +39,10 @@ dataset = pd.read_csv(
         }
 )
 
-# Preprocessing
+# =============================================================================
+# 2. PREPROCESSING
+# =============================================================================
+
 columns_to_keep = [
     'host_is_superhost',
     'host_listings_count',
@@ -50,6 +56,8 @@ columns_to_keep = [
     'bedrooms',
     'beds',
     'bed_type',
+    'room_type',
+    'property_type',
     'amenities',
     'guests_included',
     'extra_people',
@@ -102,7 +110,7 @@ X_features = pd.DataFrame(
 # cca only 15 rows for each feature
 X_features = X_features.dropna(subset = ['beds', 'bedrooms', 'bathrooms'])
 # NaN has been converted to -1 in dataset import
-X_features['host_is_superhost'] = X_features[X_features['host_is_superhost'] != -1]
+X_features = X_features[X_features['host_is_superhost'] != -1]
 
 # convert price for extra_people into float
 X_features['extra_people'] = X_features['extra_people'].str.replace('\$|,', '').astype(float)
@@ -144,3 +152,26 @@ for amenity in all_amenities:
     X_features[amenity] = X_features['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
 X_features.drop('amenities', axis=1, inplace = True)
+
+# =============================================================================
+# 3. ENCODING CATEGORICAL FEATURES
+# =============================================================================
+
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+labelEncoderX = LabelEncoder()
+X_features['neighbourhood_cleansed'] = labelEncoderX.fit_transform(X_features['neighbourhood_cleansed'])
+X_features['bed_type'] = labelEncoderX.fit_transform(X_features['bed_type'])
+X_features['cancellation_policy'] = labelEncoderX.fit_transform(X_features['cancellation_policy'])
+X_features['room_type'] = labelEncoderX.fit_transform(X_features['room_type'])
+X_features['property_type'] = labelEncoderX.fit_transform(X_features['property_type'])
+
+categorical_features_indexes = [
+    X_features.columns.get_loc('neighbourhood_cleansed'),
+    X_features.columns.get_loc('bed_type'),
+    X_features.columns.get_loc('cancellation_policy'),
+    X_features.columns.get_loc('room_type'),
+    X_features.columns.get_loc('property_type'),
+]
+
+oneHotEncoder = OneHotEncoder(categorical_features = categorical_features_indexes)
+X_features = oneHotEncoder.fit_transform(X_features).toarray()
