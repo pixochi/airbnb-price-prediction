@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import date
+from datetime import datetime
 
 binary_string_to_number_converter = lambda x: (
     1 if x == 't' else (
@@ -77,7 +77,7 @@ y_label = y_label['price'].str.replace('\$|,', '').astype(float)
 # Only very few rows don't have 'host_since' registered(9)
 dataset['host_since'].dropna(inplace = True)
 
-today = date.today()
+today = datetime.today()
 days_since = pd.DataFrame({
 #    not using days_since_last_review and days_since_first_review
 #    because thousands of rows were missing data
