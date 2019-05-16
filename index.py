@@ -117,41 +117,56 @@ dataset_processed = dataset_processed[dataset_processed['host_is_superhost'] != 
 dataset_processed['extra_people'] = dataset_processed['extra_people'].str.replace('\$|,', '').astype(float)
 
 # get all types of host_verifications as new binary features
-from ast import literal_eval
+#from ast import literal_eval
+#
+#all_host_verifications_types = dataset_processed['host_verifications'].map(
+#    lambda x: [] if x == 'None' else literal_eval(x) # read stringified list as a normal list
+#).sum()
+#all_host_verifications_types = np.unique(all_host_verifications_types)
+#
+#for verifications_type in all_host_verifications_types:
+#    dataset_processed[verifications_type] = dataset_processed['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
-all_host_verifications_types = dataset_processed['host_verifications'].map(
-    lambda x: [] if x == 'None' else literal_eval(x) # read stringified list as a normal list
-).sum()
-all_host_verifications_types = np.unique(all_host_verifications_types)
 
-for verifications_type in all_host_verifications_types:
-    dataset_processed[verifications_type] = dataset_processed['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
+dataset_processed['host_verifications_count'] = dataset_processed['host_verifications'].str.count("'\w+'")
+dataset_processed.drop(['host_verifications'], axis = 1, inplace = True)
 
-dataset_processed.drop(['host_verifications'], axis=1, inplace = True)
-
-import re
-# get all amenities as new binary features
-all_amenities = dataset_processed['amenities'].map(
-    lambda x: re.sub(
-                '{(\w+)',
-                r'{"\1"',
-                re.sub(
-                    ',(\w+)', # add missing quotation marks around each amenity
-                    r',"\1"',
-                    x
-                )
-            ).replace(
-                '{', '['
-            ).replace(
-                '}', ']'
-            ) 
-).map(lambda x: re.findall(r'"\s*([^"]*?)\s*"', x)).sum() # convert a stringified list to a normal list
-
-all_amenities = np.unique(all_amenities)
-
-for amenity in all_amenities:
-    dataset_processed[amenity] = dataset_processed['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
-
+#import re
+## get all amenities as new binary features
+#all_amenities = dataset_processed['amenities'].map(
+#    lambda x: re.sub(
+#                '{(\w+)',
+#                r'{"\1"',
+#                re.sub(
+#                    ',(\w+)', # add missing quotation marks around each amenity
+#                    r',"\1"',
+#                    x
+#                )
+#            ).replace(
+#                '{', '['
+#            ).replace(
+#                '}', ']'
+#            ) 
+#).map(lambda x: re.findall(r'"\s*([^"]*?)\s*"', x)).sum() # convert a stringified list to a normal list
+#
+#all_amenities = np.unique(all_amenities)
+#
+#for amenity in all_amenities:
+#    dataset_processed[amenity] = dataset_processed['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
+#
+#dataset_processed['amenities'] = dataset_processed['amenities'].map(
+#    lambda x: re.sub(
+#                '{(\w+)',
+#                r'{"\1"',
+#                re.sub(
+#                    ',(\w+)', # add missing quotation marks around each amenity
+#                    r',"\1"',
+#                    x
+#                )
+#            )
+#)
+                
+dataset_processed['amenities_count'] = dataset_processed['amenities'].str.count('[a-zA-Z0-9_ \/-]+')
 dataset_processed.drop('amenities', axis=1, inplace = True)
 
 # =============================================================================
@@ -203,7 +218,29 @@ XTest = scaler.transform (XTest)
 # 6. LINEAR REGRESSION MODEL
 # =============================================================================
 
+from sklearn.linear_model import LinearRegression
+regressor = LinearRegression()
+regressor.fit(XTrain, yTrain)
 
+# Predictions
+yPred = regressor.predict(XTest)
+
+# The mean squared error
+#from sklearn.metrics import mean_squared_error, r2_score
+#print("Mean squared error: %.2f"
+#      % mean_squared_error(yTest, yPred))
+## Explained variance score: 1 is perfect prediction
+#print('Variance score: %.2f' % r2_score(yTest, yPred))
+#
+## Plot outputs
+#import matplotlib.pyplot as plt
+#plt.scatter(XTest, yPred,  color='black')
+#plt.plot(XTest, yPred, color='blue', linewidth=3)
+#
+#plt.xticks(())
+#plt.yticks(())
+#
+#plt.show()
 
 
 
