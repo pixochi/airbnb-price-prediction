@@ -182,16 +182,25 @@ oneHotEncoder = OneHotEncoder(categorical_features = categorical_features_indexe
 X_features = oneHotEncoder.fit_transform(X_features).toarray()
 
 # =============================================================================
-# 4. FEATURE SCALING
+# 4. SPLITTING THE DATASET INTO TRAINING/TESTING SETS
+# =============================================================================
+from sklearn.model_selection import train_test_split
+XTrain, XTest, yTrain, yTest = train_test_split(X_features, y_label, random_state = 0, test_size = 0.2)
+
+# =============================================================================
+# 5. FEATURE SCALING
 # =============================================================================
 
 from sklearn.preprocessing import StandardScaler
 
+# why to fit the scaler on training data only
+# https://datascience.stackexchange.com/questions/38395/standardscaler-before-and-after-splitting-data
 scaler = StandardScaler()
-X_features = scaler.fit_transform(X_features)
+XTrain = scaler.fit_transform(XTrain)
+XTest = scaler.transform (XTest)
 
 # =============================================================================
-# 5. LINEAR REGRESSION MODEL
+# 6. LINEAR REGRESSION MODEL
 # =============================================================================
 
 
