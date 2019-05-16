@@ -193,6 +193,7 @@ X_features = dataset_processed.drop(['price', 'host_since'], axis = 1)
 y_label = dataset_processed.loc[:, ['price']]
 y_label = y_label['price'].str.replace('\$|,', '').astype(float)
 
+# https://stackoverflow.com/questions/51748260/python-onehotencoder-using-many-dummy-variables-or-better-practice
 # 'drop_first=True' saves you from the dummy variable trap
 X_features = pd.get_dummies(X_features,columns = categorical_features, drop_first = True)
 
@@ -226,27 +227,65 @@ regressor.fit(XTrain, yTrain)
 # Predictions
 yPred = regressor.predict(XTest)
 
-# The mean squared error
-#from sklearn.metrics import mean_squared_error, r2_score
-#print("Mean squared error: %.2f"
-#      % mean_squared_error(yTest, yPred))
-## Explained variance score: 1 is perfect prediction
-#print('Variance score: %.2f' % r2_score(yTest, yPred))
-#
-## Plot outputs
-#import matplotlib.pyplot as plt
-#plt.scatter(XTest, yPred,  color='black')
-#plt.plot(XTest, yPred, color='blue', linewidth=3)
-#
-#plt.xticks(())
-#plt.yticks(())
-#
-#plt.show()
+# =============================================================================
+# 6.1 LINEAR REGRESSION MODEL - PREDICTIONS - BEFORE OPTIMIZATION
+# =============================================================================
+from sklearn.metrics import mean_squared_error, r2_score
+print("\nBEFORE OPTIMIZATION")
+print("Mean squared error: %.2f"
+      % mean_squared_error(yTest, yPred))
+# variance score: 1 is perfect prediction
+print('Variance score: %.2f' % r2_score(yTest, yPred))
 
 
+# =============================================================================
+# 6.1 LINEAR REGRESSION MODEL - OPTIMIZING - BACKWARD ELIMINATION
+# =============================================================================
 
+import numpy as np
+import statsmodels.formula.api as sm
+from sklearn.metrics import mean_squared_error, r2_score
 
+def backwardEliminateFeatures(features, y_label, p_threshold):    
+    regressorOLS = sm.OLS(y_label, features).fit()
+    # lower the pValue, higher the statistical significance
+    pvalues = regressorOLS.pvalues
+    
+    max_pvalue_index = pvalues.argmax()
+    
+    if (max_pvalue_index == 'const'):
+        max_pvalue_index = 0
+    elif(max_pvalue_index.find('x') > -1):
+        max_pvalue_index = int(max_pvalue_index[1:])
 
+    max_pvalue = pvalues[max_pvalue_index]
+    
+    if(max_pvalue < p_threshold):
+        return features
+    else:
+         features = np.delete(features, max_pvalue_index, axis=1)
+         return backwardEliminateFeatures(features, y_label, p_threshold)
+
+    
+# add a column with the constant
+X_features = np.append(np.ones((X_features.shape[0], 1)).astype(int), X_features, axis = 1)
+X_features = backwardEliminateFeatures(X_features, y_label, 0.0001)
+
+# =============================================================================
+# 6.2 LINEAR REGRESSION MODEL - PREDICTIONS - AFTER OPTIMIZATION
+# =============================================================================
+XTrain, XTest, yTrain, yTest = train_test_split(X_features, y_label, random_state = 0, test_size = 0.2)
+
+regressor = LinearRegression()
+regressor.fit(XTrain, yTrain)
+
+yPred = regressor.predict(XTest)
+
+print("\nAFTER OPTIMIZATION")
+print("Mean squared error: %.2f"
+      % mean_squared_error(yTest, yPred))
+# variance score: 1 is perfect prediction
+print('Variance score: %.2f' % r2_score(yTest, yPred))
 
 
 
