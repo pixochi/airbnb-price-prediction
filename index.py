@@ -76,20 +76,20 @@ columns_to_keep = [
     'cancellation_policy',
     'require_guest_profile_picture',
     'require_guest_phone_verification',
+    'host_since',
+    'price',
 ]
 
-X_features = dataset.loc[:, columns_to_keep]
-y_label = dataset.loc[:, ['price']]
-y_label = y_label['price'].str.replace('\$|,', '').astype(float)
+dataset_processed = dataset.loc[:, columns_to_keep]
 
 # Only very few rows don't have 'host_since' registered(9)
-dataset['host_since'].dropna(inplace = True)
+dataset_processed['host_since'].dropna(inplace = True)
 
 today = datetime.today()
 days_since = pd.DataFrame({
 #    not using days_since_last_review and days_since_first_review
 #    because thousands of rows were missing data
-    'days_since_host_registration': today - dataset['host_since'],
+    'days_since_host_registration': today - dataset_processed['host_since'],
 }).applymap(
     lambda x: x.days # get days as number
 ).apply(
@@ -99,38 +99,39 @@ days_since = pd.DataFrame({
 )
 
 # join X_features with a new feature
-X_features = pd.DataFrame(
+dataset_processed = pd.DataFrame(
     pd.concat(
-        [X_features, days_since],
+        [dataset_processed, days_since],
         axis = 1
     )
 )
+dataset_processed.drop(['host_since'], axis = 1)
     
 # drop rows where feature values are NaN
 # cca only 15 rows for each feature
-X_features = X_features.dropna(subset = ['beds', 'bedrooms', 'bathrooms'])
+dataset_processed = dataset_processed.dropna(subset = ['beds', 'bedrooms', 'bathrooms'])
 # NaN has been converted to -1 in dataset import
-X_features = X_features[X_features['host_is_superhost'] != -1]
+dataset_processed = dataset_processed[dataset_processed['host_is_superhost'] != -1]
 
 # convert price for extra_people into float
-X_features['extra_people'] = X_features['extra_people'].str.replace('\$|,', '').astype(float)
+dataset_processed['extra_people'] = dataset_processed['extra_people'].str.replace('\$|,', '').astype(float)
 
 # get all types of host_verifications as new binary features
 from ast import literal_eval
 
-all_host_verifications_types = X_features['host_verifications'].map(
+all_host_verifications_types = dataset_processed['host_verifications'].map(
     lambda x: [] if x == 'None' else literal_eval(x) # read stringified list as a normal list
 ).sum()
 all_host_verifications_types = np.unique(all_host_verifications_types)
 
 for verifications_type in all_host_verifications_types:
-    X_features[verifications_type] = X_features['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
+    dataset_processed[verifications_type] = dataset_processed['host_verifications'].str.contains(verifications_type, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
-X_features.drop(['host_verifications'], axis=1, inplace = True)
+dataset_processed.drop(['host_verifications'], axis=1, inplace = True)
 
 import re
 # get all amenities as new binary features
-all_amenities = X_features['amenities'].map(
+all_amenities = dataset_processed['amenities'].map(
     lambda x: re.sub(
                 '{(\w+)',
                 r'{"\1"',
@@ -149,9 +150,9 @@ all_amenities = X_features['amenities'].map(
 all_amenities = np.unique(all_amenities)
 
 for amenity in all_amenities:
-    X_features[amenity] = X_features['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
+    dataset_processed[amenity] = dataset_processed['amenities'].str.contains(amenity, regex = False) * 1 # multiplying boolean by 1 converts bool to int
 
-X_features.drop('amenities', axis=1, inplace = True)
+dataset_processed.drop('amenities', axis=1, inplace = True)
 
 # =============================================================================
 # 3. ENCODING CATEGORICAL FEATURES
@@ -159,19 +160,53 @@ X_features.drop('amenities', axis=1, inplace = True)
 
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 labelEncoderX = LabelEncoder()
-X_features['neighbourhood_cleansed'] = labelEncoderX.fit_transform(X_features['neighbourhood_cleansed'])
-X_features['bed_type'] = labelEncoderX.fit_transform(X_features['bed_type'])
-X_features['cancellation_policy'] = labelEncoderX.fit_transform(X_features['cancellation_policy'])
-X_features['room_type'] = labelEncoderX.fit_transform(X_features['room_type'])
-X_features['property_type'] = labelEncoderX.fit_transform(X_features['property_type'])
+dataset_processed['neighbourhood_cleansed'] = labelEncoderX.fit_transform(dataset_processed['neighbourhood_cleansed'])
+dataset_processed['bed_type'] = labelEncoderX.fit_transform(dataset_processed['bed_type'])
+dataset_processed['cancellation_policy'] = labelEncoderX.fit_transform(dataset_processed['cancellation_policy'])
+dataset_processed['room_type'] = labelEncoderX.fit_transform(dataset_processed['room_type'])
+dataset_processed['property_type'] = labelEncoderX.fit_transform(dataset_processed['property_type'])
 
 categorical_features_indexes = [
-    X_features.columns.get_loc('neighbourhood_cleansed'),
-    X_features.columns.get_loc('bed_type'),
-    X_features.columns.get_loc('cancellation_policy'),
-    X_features.columns.get_loc('room_type'),
-    X_features.columns.get_loc('property_type'),
+    dataset_processed.columns.get_loc('neighbourhood_cleansed'),
+    dataset_processed.columns.get_loc('bed_type'),
+    dataset_processed.columns.get_loc('cancellation_policy'),
+    dataset_processed.columns.get_loc('room_type'),
+    dataset_processed.columns.get_loc('property_type'),
 ]
+
+X_features = dataset_processed.drop(['price', 'host_since'], axis = 1)
+y_label = dataset_processed.loc[:, ['price']]
+y_label = y_label['price'].str.replace('\$|,', '').astype(float)
 
 oneHotEncoder = OneHotEncoder(categorical_features = categorical_features_indexes)
 X_features = oneHotEncoder.fit_transform(X_features).toarray()
+
+# =============================================================================
+# 4. FEATURE SCALING
+# =============================================================================
+
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_features = scaler.fit_transform(X_features)
+
+# =============================================================================
+# 5. LINEAR REGRESSION MODEL
+# =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
