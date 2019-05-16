@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy as np
+#import numpy as np
 from datetime import datetime
 
 # =============================================================================
@@ -173,7 +173,7 @@ dataset_processed.drop('amenities', axis=1, inplace = True)
 # 3. ENCODING CATEGORICAL FEATURES
 # =============================================================================
 
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
 labelEncoderX = LabelEncoder()
 dataset_processed['neighbourhood_cleansed'] = labelEncoderX.fit_transform(dataset_processed['neighbourhood_cleansed'])
 dataset_processed['bed_type'] = labelEncoderX.fit_transform(dataset_processed['bed_type'])
@@ -181,20 +181,21 @@ dataset_processed['cancellation_policy'] = labelEncoderX.fit_transform(dataset_p
 dataset_processed['room_type'] = labelEncoderX.fit_transform(dataset_processed['room_type'])
 dataset_processed['property_type'] = labelEncoderX.fit_transform(dataset_processed['property_type'])
 
-categorical_features_indexes = [
-    dataset_processed.columns.get_loc('neighbourhood_cleansed'),
-    dataset_processed.columns.get_loc('bed_type'),
-    dataset_processed.columns.get_loc('cancellation_policy'),
-    dataset_processed.columns.get_loc('room_type'),
-    dataset_processed.columns.get_loc('property_type'),
+categorical_features = [
+    'neighbourhood_cleansed',
+    'bed_type',
+    'cancellation_policy',
+    'room_type',
+    'property_type',
 ]
 
 X_features = dataset_processed.drop(['price', 'host_since'], axis = 1)
 y_label = dataset_processed.loc[:, ['price']]
 y_label = y_label['price'].str.replace('\$|,', '').astype(float)
 
-oneHotEncoder = OneHotEncoder(categorical_features = categorical_features_indexes)
-X_features = oneHotEncoder.fit_transform(X_features).toarray()
+# 'drop_first=True' saves you from the dummy variable trap
+X_features = pd.get_dummies(X_features,columns = categorical_features, drop_first = True)
+
 
 # =============================================================================
 # 4. SPLITTING THE DATASET INTO TRAINING/TESTING SETS
