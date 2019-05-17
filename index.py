@@ -1,7 +1,9 @@
+#%%
 import pandas as pd
 #import numpy as np
 from datetime import datetime
 
+#%%
 # =============================================================================
 # 1. IMPORTING THE DATASET
 # =============================================================================
@@ -38,6 +40,7 @@ dataset = pd.read_csv(
             'require_guest_phone_verification': binary_string_to_number_converter,
         }
 )
+#%%
 
 # =============================================================================
 # 2. PREPROCESSING
@@ -181,6 +184,10 @@ dataset_processed['cancellation_policy'] = labelEncoderX.fit_transform(dataset_p
 dataset_processed['room_type'] = labelEncoderX.fit_transform(dataset_processed['room_type'])
 dataset_processed['property_type'] = labelEncoderX.fit_transform(dataset_processed['property_type'])
 
+dataset_processed['price'] = dataset_processed['price'].str.replace('\$|,', '').astype(float)
+dataset_processed =  dataset_processed[dataset_processed['price'] < 2000]  
+# dataset_processed['availability_365'] = dataset_processed['avSailability_365'].clip(upper=365)
+
 categorical_features = [
     'neighbourhood_cleansed',
     'bed_type',
@@ -189,20 +196,23 @@ categorical_features = [
     'property_type',
 ]
 
-X_features = dataset_processed.drop(['price', 'host_since'], axis = 1)
+X_features = dataset_processed
+X_features = X_features.drop(['price', 'host_since'], axis = 1)
 y_label = dataset_processed.loc[:, ['price']]
-y_label = y_label['price'].str.replace('\$|,', '').astype(float)
 
 # https://stackoverflow.com/questions/51748260/python-onehotencoder-using-many-dummy-variables-or-better-practice
 # 'drop_first=True' saves you from the dummy variable trap
 X_features = pd.get_dummies(X_features,columns = categorical_features, drop_first = True)
 
+#%%
 
 # =============================================================================
 # 4. SPLITTING THE DATASET INTO TRAINING/TESTING SETS
 # =============================================================================
 from sklearn.model_selection import train_test_split
 XTrain, XTest, yTrain, yTest = train_test_split(X_features, y_label, random_state = 0, test_size = 0.2)
+
+#%%
 
 # =============================================================================
 # 5. FEATURE SCALING
@@ -215,6 +225,7 @@ from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 XTrain = scaler.fit_transform(XTrain)
 XTest = scaler.transform (XTest)
+#%%
 
 # =============================================================================
 # 6. LINEAR REGRESSION MODEL
@@ -288,6 +299,237 @@ print("Mean squared error: %.2f"
 print('Variance score: %.2f' % r2_score(yTest, yPred))
 
 
+#%%
+
+# =============================================================================
+# 7. Serialize processed dataset
+# =============================================================================
+
+# import pickle
+
+# # save to pickle files
+
+# pickle.dump(dataset, open("dataset.pickle", "wb"))
+
+# pickle.dump(dataset_processed, open("dataset_processed.pickle", "wb"))
+
+# pickle.dump(X_features, open("X_features.pickle", "wb"))
+
+# pickle.dump(y_label, open("y_label.pickle", "wb"))
+
+
+# #%%
+# # load from pickle files
+
+# dataset = pickle.load(open('dataset.pickle', 'rb'))
+
+# dataset_processed = pickle.load(open('dataset_processed.pickle', 'rb'))
+
+# X_features = pickle.load(open('X_features.pickle', 'rb'))
+
+# y_label = pickle.load(open('y_label.pickle', 'rb'))
+
+
+#%%
+
+# =============================================================================
+# 8. VISUALIZATIONS
+# =============================================================================
+
+import matplotlib.pyplot as plt
+
+
+#%%
+y_label.hist(bins=50, figsize=(5,5))
+plt.show()
+
+
+#%%
+y_label.plot(kind='box', subplots=True, layout=(1,12),figsize=(20,7), sharex=False, sharey=False)
+plt.tight_layout()
+
+
+#%%
+y_label.plot(kind='box', showfliers=False, subplots=True, layout=(1,12),figsize=(20,7), sharex=False, sharey=False)
+plt.tight_layout()
+
+
+#%%
+plt.scatter(dataset_processed['beds'],dataset_processed['bedrooms'])
+plt.ylabel('bedrooms')
+plt.xlabel('beds')
+plt.title('No. of beds vs bedrooms')
+
+
+#%%
+plt.scatter(dataset_processed['price'],dataset_processed['bedrooms'])
+plt.ylabel('bedrooms')
+plt.xlabel('price')
+plt.title('No. of bedrooms vs price')
+
+#%%
+import seaborn as sns
+
+plt.figure(figsize=(15,8))
+corr = dataset_processed[["price","bedrooms","beds",'minimum_nights','maximum_nights']].corr()
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+sns.heatmap(corr, linewidths=.5,annot=True,mask=mask,cmap='coolwarm')
+#%%
+sns.pairplot(dataset_processed[["price","bedrooms","beds",'minimum_nights','maximum_nights']], diag_kind="kde")
+#%%
+# =============================================================================
+# 9. RANDOM FOREST MODEL
+# =============================================================================
+# create and train the model
+from sklearn.ensemble import RandomForestRegressor
+forest = RandomForestRegressor(n_estimators=500, 
+                               criterion='mse', 
+                               random_state=3, 
+                               n_jobs=-1)
+forest.fit(XTrain, yTrain)
+
+
+
+#%%
+y_train_pred = forest.predict(XTrain)
+y_test_pred = forest.predict(XTest)
+#%%
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
+
+print('MSE train: %.3f, test: %.3f' % (
+        mean_squared_error(yTrain, y_train_pred),
+        mean_squared_error(yTest, y_test_pred)))
+print('R^2 train: %.3f, test: %.3f' % (
+        r2_score(yTrain, y_train_pred),
+        r2_score(yTest, y_test_pred)))
+
+#%%
+# =============================================================================
+# 10. DNN
+# =============================================================================
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+#%%
+def build_model():
+  model = keras.Sequential([
+    # layers.Dense(64, activation=tf.nn.relu, input_shape=[77]),
+    layers.Dense(64, activation=tf.nn.relu, input_shape=[33]),
+    layers.Dense(64, activation=tf.nn.relu),
+    layers.Dense(1)
+  ])
+
+  optimizer = tf.keras.optimizers.RMSprop(0.001)
+
+  model.compile(loss='mean_squared_error',
+                optimizer=optimizer,
+                metrics=['mean_absolute_error', 'mean_squared_error'])
+  return model
+
+#%%
+model = build_model()
+
+
+#%%
+model.summary()
+
+
+#%%
+example_batch = XTrain[:10]
+example_result = model.predict(example_batch)
+example_result
+
+#%%
+# Display training progress by printing a single dot for each completed epoch
+class PrintDot(keras.callbacks.Callback):
+  def on_epoch_end(self, epoch, logs):
+    if epoch % 100 == 0: print('')
+    print('.', end='')
+
+# 
+EPOCHS = 1000
+
+history = model.fit(
+  XTrain, yTrain,
+  epochs=EPOCHS, validation_split = 0.2, verbose=0,
+  callbacks=[PrintDot()])
+
+#%%
+hist = pd.DataFrame(history.history)
+hist['epoch'] = history.epoch
+hist.tail()
+
+#%%
+def plot_history(history):
+  hist = pd.DataFrame(history.history)
+  hist['epoch'] = history.epoch
+  
+  plt.figure()
+  plt.xlabel('Epoch')
+  plt.ylabel('Mean Abs Error [Price]')
+  plt.plot(hist['epoch'], hist['mean_absolute_error'],
+           label='Train Error')
+  plt.plot(hist['epoch'], hist['val_mean_absolute_error'],
+           label = 'Val Error')
+#   plt.ylim([0,5])
+  plt.legend()
+  
+  plt.figure()
+  plt.xlabel('Epoch')
+  plt.ylabel('Mean Square Error [$Price^2$]')
+  plt.plot(hist['epoch'], hist['mean_squared_error'],
+           label='Train Error')
+  plt.plot(hist['epoch'], hist['val_mean_squared_error'],
+           label = 'Val Error')
+#   plt.ylim([0,20])
+  plt.legend()
+  plt.show()
+
+
+plot_history(history)
+
+#%%
+model = build_model()
+
+# The patience parameter is the amount of epochs to check for improvement
+early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
+
+history = model.fit(XTrain, yTrain, epochs=EPOCHS,
+                    validation_split = 0.2, verbose=0, callbacks=[early_stop, PrintDot()])
+
+plot_history(history)
+
+#%%
+loss, mae, mse = model.evaluate(XTest, yTest, verbose=0)
+
+print("Testing set Mean Abs Error: {:5.2f} Price".format(mae))
+print("Testing set Mean Squared Error: {:5.2f} Price".format(mse))
+
+#%%
+test_predictions = model.predict(XTest).flatten()
+
+plt.scatter(yTest, test_predictions)
+plt.xlabel('True Values [Price]')
+plt.ylabel('Predictions [Price]')
+plt.axis('equal')
+plt.axis('square')
+plt.xlim([0,plt.xlim()[1]])
+plt.ylim([0,plt.ylim()[1]])
+# _ = plt.plot([-100, 100], [-100, 100])
+_ = plt.plot([-2200, 2200], [-2200, 2200])
+
+#%%
+error = test_predictions - yTest.values[:,0]
+plt.hist(error, bins = 25)
+plt.xlabel("Prediction Error [Price]")
+_ = plt.ylabel("Count")
+
+
+#%%
 
 
 
